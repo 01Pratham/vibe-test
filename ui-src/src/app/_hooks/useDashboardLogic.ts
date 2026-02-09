@@ -113,6 +113,7 @@ export const useDashboardLogic = () => {
     const collectionModal = useDisclosure()
     const requestModal = useDisclosure()
     const envModal = useDisclosure()
+    const envManagerModal = useDisclosure()
     const snippetModal = useDisclosure()
     const conflictModal = useDisclosure()
     const openApiViewerModal = useDisclosure()
@@ -213,7 +214,7 @@ export const useDashboardLogic = () => {
         try {
             const vars = JSON.parse(env.variables) as Record<string, string>
             return Object.keys(vars)
-        } catch (_e) {
+        } catch {
             return []
         }
     }, [environments, selectedEnvId])
@@ -277,11 +278,11 @@ export const useDashboardLogic = () => {
         let currentVars: Record<string, string> = {}
         const envInstance = environments.find(e => e.id === selectedEnvId)
         if (envInstance) {
-            try { currentVars = JSON.parse(envInstance.variables) as Record<string, string> } catch (_e) { /* ignore */ }
+            try { currentVars = JSON.parse(envInstance.variables) as Record<string, string> } catch { /* ignore */ }
         } else {
             // Try Local Env
             const localEnv = environments.find(e => e.name === 'Local Environment')
-            if (localEnv) { try { currentVars = JSON.parse(localEnv.variables) as Record<string, string> } catch (_e) { /* ignore */ } }
+            if (localEnv) { try { currentVars = JSON.parse(localEnv.variables) as Record<string, string> } catch { /* ignore */ } }
         }
 
         // 2. Run Pre-Request Script
@@ -354,8 +355,8 @@ export const useDashboardLogic = () => {
             if (envIdToUpdate) {
                 const env = environments.find(e => e.id === envIdToUpdate);
                 if (env) {
-                    void updateEnvironment(envIdToUpdate, env.name, JSON.stringify(variables));
-                    void loadEnvironments();
+                    await updateEnvironment(envIdToUpdate, env.name, JSON.stringify(variables));
+                    await loadEnvironments();
                 }
             }
         }
@@ -551,7 +552,7 @@ export const useDashboardLogic = () => {
                 }
             }
             setTabs(prev => prev.filter(t => t.savedRequestId !== id))
-            void loadCollections()
+            await loadCollections()
         } else {
             toast({ title: 'Failed to delete request', status: 'error', duration: 3000 })
         }
@@ -575,7 +576,7 @@ export const useDashboardLogic = () => {
             setNewEnvVariables('{}')
             setEditingEnvId(null)
             envModal.onClose()
-            void loadEnvironments()
+            await loadEnvironments()
         } else {
             toast({ title: result.error ?? 'Failed', status: 'error', duration: 3000 })
         }
@@ -586,7 +587,7 @@ export const useDashboardLogic = () => {
         if (result.success) {
             toast({ title: 'Environment deleted', status: 'success', duration: 2000 })
             if (selectedEnvId === id) { setSelectedEnvId('') }
-            void loadEnvironments()
+            await loadEnvironments()
         } else {
             toast({ title: 'Failed to delete environment', status: 'error', duration: 3000 })
         }
@@ -755,6 +756,7 @@ export const useDashboardLogic = () => {
         collectionModal,
         requestModal,
         envModal,
+        envManagerModal,
         snippetModal,
         conflictModal,
         openApiViewerModal,

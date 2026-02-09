@@ -60,7 +60,7 @@ export class JsonStorageProvider implements IStorageProvider {
                     environments: parsed.environments ?? [],
                     history: parsed.history ?? [],
                 };
-            } catch (e) {
+            } catch {
                 this.cacheData = { collections: [], requests: [], environments: [], history: [] };
             }
 
@@ -74,7 +74,7 @@ export class JsonStorageProvider implements IStorageProvider {
                         environments: parsed.environments ?? [],
                         history: parsed.history ?? [],
                     };
-                } catch (e) {
+                } catch {
                     this.customData = { collections: [], requests: [], environments: [], history: [] };
                 }
             }
@@ -109,6 +109,36 @@ export class JsonStorageProvider implements IStorageProvider {
         await this.saveCache();
     }
 
+    /**
+     * Reload custom data from disk (api-tester.json)
+     * This ensures manual edits to the file are picked up
+     */
+    public async reloadCustomData(): Promise<void> {
+        if (this.customPath === undefined || this.customPath === null || this.customPath === '') {
+            return;
+        }
+        try {
+            const content = await fs.readFile(this.customPath, 'utf-8');
+            const parsed = JSON.parse(content) as Partial<StorageData>;
+            this.customData = {
+                collections: parsed.collections ?? [],
+                requests: parsed.requests ?? [],
+                environments: parsed.environments ?? [],
+                history: parsed.history ?? [],
+            };
+        } catch {
+            // File doesn't exist or is invalid, keep existing data
+        }
+    }
+
+    /**
+     * Reload custom data before read operations to ensure fresh data
+     */
+    private async ensureFreshData(): Promise<void> {
+        await this.waitInitialized();
+        await this.reloadCustomData();
+    }
+
     private getAll<T extends Collection | StoreRequest | Environment | HistoryEntry>(type: keyof StorageData): T[] {
         const cacheItems = (this.cacheData[type] as T[]) ?? [];
         const customItems = (this.customData[type] as T[]) ?? [];
@@ -133,13 +163,11 @@ export class JsonStorageProvider implements IStorageProvider {
     }
 
     private ensureCustomData(): void {
-        if (this.customData === undefined || this.customData === null) {
-            this.customData = { collections: [], requests: [], environments: [], history: [] };
-        }
+        this.customData ??= { collections: [], requests: [], environments: [], history: [] };
     }
 
     public async getCollections(userId: string): Promise<Collection[]> {
-        await this.waitInitialized();
+        await this.ensureFreshData();
         const allCollections = this.getAll<Collection>('collections');
         const allRequests = this.getAll<StoreRequest>('requests');
 
@@ -204,13 +232,13 @@ export class JsonStorageProvider implements IStorageProvider {
     }
 
     public async getRequests(collectionId: string): Promise<StoreRequest[]> {
-        await this.waitInitialized();
+        await this.ensureFreshData();
         const all = this.getAll<StoreRequest>('requests');
         return all.filter((r: StoreRequest) => r.collectionId === collectionId && !r.is_deleted);
     }
 
     public async getRequest(id: string): Promise<StoreRequest | undefined> {
-        await this.waitInitialized();
+        await this.ensureFreshData();
         const all = this.getAll<StoreRequest>('requests');
         return all.find((r: StoreRequest) => r.id === id && !r.is_deleted);
     }
@@ -228,7 +256,7 @@ export class JsonStorageProvider implements IStorageProvider {
         const allCols = this.getAll<Collection>('collections');
         const col = allCols.find((c: Collection) => c.id === data.collectionId);
 
-        if (col !== undefined && col.name === this.autoCollectionName) {
+        if (col?.name === this.autoCollectionName) {
             this.cacheData.requests.push(newRequest);
             await this.saveCache();
         } else {
@@ -270,7 +298,7 @@ export class JsonStorageProvider implements IStorageProvider {
     }
 
     public async getEnvironments(): Promise<Environment[]> {
-        await this.waitInitialized();
+        await this.ensureFreshData();
         return this.getAll<Environment>('environments').filter((e: Environment) => !e.is_deleted);
     }
 

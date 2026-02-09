@@ -22,9 +22,7 @@ export class CaptureService {
         const collections = await this.storage.getCollections(userId);
         let autoCollection = collections.find(c => c.name === collectionName);
 
-        if (autoCollection === undefined) {
-            autoCollection = await this.storage.createCollection(userId, { name: collectionName });
-        }
+        autoCollection ??= await this.storage.createCollection(userId, { name: collectionName });
 
         const existingRequests = await this.storage.getRequests(autoCollection.id);
 
@@ -46,7 +44,6 @@ export class CaptureService {
                     name: route.name,
                     method: route.method,
                     url: targetUrl,
-                    // eslint-disable-next-line @typescript-eslint/naming-convention
                     headers: JSON.stringify({ ['Content-Type']: 'application/json' }, null, 2),
                     body: defaultBody
                 });

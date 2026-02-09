@@ -114,7 +114,7 @@ async function parseResponse(response: Response, startTime: number, endTime: num
     const contentType = response.headers.get('content-type');
     let body: string | JsonValue;
 
-    if (contentType !== null && contentType.includes('application/json')) {
+    if (contentType?.includes('application/json')) {
         body = (await response.json()) as JsonValue;
     } else {
         body = await response.text();

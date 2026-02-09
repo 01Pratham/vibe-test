@@ -53,7 +53,7 @@ export const saveToHistory = async (
             return { success: true }
         }
         return { success: false, error: 'Failed to save to history' }
-    } catch (error) {
+    } catch {
         return { success: false, error: 'Failed to save to history' }
     }
 }
@@ -68,7 +68,7 @@ export const clearHistory = async (): Promise<{ success: boolean; error?: string
             return { success: true }
         }
         return { success: false, error: 'Failed to clear history' }
-    } catch (error) {
+    } catch {
         return { success: false, error: 'Failed to clear history' }
     }
 }
@@ -78,12 +78,12 @@ export const clearHistory = async (): Promise<{ success: boolean; error?: string
  */
 export const deleteHistoryItem = async (id: string): Promise<{ success: boolean; error?: string }> => {
     try {
-        const res = await fetch(`/__api__/history/${id}`, { method: 'DELETE' })
+        const res = await fetch(`__api__/history/${id}`, { method: 'DELETE' })
         if (res.ok) {
             return { success: true }
         }
         return { success: false, error: 'Failed to delete history item' }
-    } catch (error) {
+    } catch {
         return { success: false, error: 'Failed to delete history item' }
     }
 }

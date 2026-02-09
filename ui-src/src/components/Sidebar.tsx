@@ -10,11 +10,11 @@ import {
     FiClock,
     FiDownload,
     FiTrash2,
-    FiZap,
     FiChevronRight,
     FiChevronDown,
     FiMoreVertical,
 } from 'react-icons/fi'
+import Image from 'next/image'
 
 import type { UseDisclosureReturn } from '@chakra-ui/react';
 import {
@@ -77,6 +77,7 @@ interface SidebarContentProps {
     openApiViewerModal: UseDisclosureReturn
     settingsModal: UseDisclosureReturn
     envModal: UseDisclosureReturn
+    envManagerModal?: UseDisclosureReturn
     importModal: UseDisclosureReturn
     collectionModal: UseDisclosureReturn
     setEditingEnvId: (id: string | null) => void
@@ -97,32 +98,58 @@ interface SidebarContentProps {
 
 /**
  * Automatically groups requests into folders based on their URL paths.
+ * Requests with only parameter segments (like /:id) are not organized into folders.
+ * Common API prefixes like /api/, /v1/, /__api__/ are removed before organizing.
  */
 const organizeIntoFolders = (requests: RequestItem[]): Folder[] => {
     const rootFolders: Record<string, Folder> = {}
 
     requests.forEach(req => {
-        // Try to identify folder from request name or URL
-        // Example: "POST /__api__/v1/users/login" -> Folder "users"
-        const nameParts = req.name.split(' ')
-        const path = nameParts.length > 1 ? nameParts[1] : req.url
+        // Use URL as source of truth for path structure
+        // Strip protocol and domain
+        let path = req.name.split(' ').length > 1 ? req.name.split(' ')[1] : req.url
 
-        const segments = path.split('/').filter(s =>
-            s && s !== 'api' && s !== 'v1' && !s.startsWith(':') && !s.startsWith('{{')
-        )
+        // If we can get a better path from URL, use it (especially if name is truncated)
+        if (req.url && req.url.length > path.length && req.url.includes('/')) {
+            path = req.url
+        }
 
-        if (segments.length > 0) {
-            const folderName = segments[0]
-            if (!rootFolders[folderName]) {
-                rootFolders[folderName] = {
-                    id: `folder-${folderName}`,
-                    name: folderName.charAt(0).toUpperCase() + folderName.slice(1),
+        // Strip protocol and domain
+        path = path.replace(/^https?:\/\/[^/]+/, '')
+
+        // Strip environment variables at start like {{BASE_URL}}
+        path = path.replace(/^{{[^}]+}}/, '')
+
+        // Remove common API prefixes first
+        path = path.replace(/^\/__api__\/(v\d+\/)?/, '/')
+        path = path.replace(/^\/api\/(v\d+\/)?/, '/')
+
+        // Split path and filter out empty segments
+        const allSegments = path
+            .split('/')
+            .filter(s => s.trim() !== '')
+
+        // Get segments that are not parameters (for folder naming)
+        const nonParamSegments = allSegments.filter(s => !s.startsWith(':') && !s.startsWith('{{'))
+
+        // Only create folders for requests with meaningful path segments
+        if (nonParamSegments.length > 0) {
+            // Use the first meaningful segment as the folder name
+            const folderName = nonParamSegments[0]
+            const folderKey = folderName.toLowerCase()
+
+            if (!rootFolders[folderKey]) {
+                rootFolders[folderKey] = {
+                    id: `folder-${folderKey}`,
+                    name: folderName.toUpperCase(), // Use uppercase for folder names
                     requests: [],
                     folders: []
                 }
             }
-            rootFolders[folderName].requests.push(req)
+            rootFolders[folderKey].requests.push(req)
         }
+        // Requests with only parameter segments (like /:id, /) will not be added to folders
+        // They will be displayed as standalone requests under the collection
     })
 
     return Object.values(rootFolders)
@@ -137,7 +164,7 @@ interface RequestItemRowProps {
     onCloseSidebar?: () => void
 }
 
-const RequestItemRow = ({ req, activeTab, hoverBg, loadRequest, deleteRequest, onCloseSidebar }: RequestItemRowProps): JSX.Element => {
+const RequestItemRow = ({ req, activeTab, hoverBg, loadRequest, deleteRequest, onCloseSidebar: _onCloseSidebar }: RequestItemRowProps): JSX.Element => {
     return (
         <HStack
             p={2}
@@ -148,7 +175,7 @@ const RequestItemRow = ({ req, activeTab, hoverBg, loadRequest, deleteRequest, o
             _hover={{ bg: hoverBg }}
             onClick={(): void => {
                 loadRequest(req)
-                if (onCloseSidebar) { onCloseSidebar() }
+                // if (onCloseSidebar) { onCloseSidebar() }
             }}
             spacing={2}
         >
@@ -161,7 +188,32 @@ const RequestItemRow = ({ req, activeTab, hoverBg, loadRequest, deleteRequest, o
                 {req.method}
             </Text>
             <Text fontSize="xs" noOfLines={1} flex="1">
-                {req.name.split(' ').slice(1).join(' ') || req.name}
+                {(() => {
+                    let path = req.name
+
+                    // 1. Strip Method (Regex is safer than split)
+                    path = path.replace(/^(GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD)\s+/i, '')
+
+                    // 2. Check URL for better path
+                    if (req.url && req.url.includes('/')) {
+                        const urlPath = req.url.replace(/^https?:\/\/[^/]+/, '').replace(/^{{[^}]+}}/, '')
+                        // If urlPath is "better" (longer)
+                        if (urlPath.length > path.length && urlPath.includes('/')) {
+                            path = urlPath
+                        }
+                    }
+
+                    // 3. Strip API prefixes
+                    path = path.replace(/^\/__api__\/(v\d+\/)?/, '/')
+                    path = path.replace(/^\/api\/(v\d+\/)?/, '/')
+
+                    // 4. Strip leading slash
+                    if (path.startsWith('/')) {
+                        path = path.substring(1)
+                    }
+
+                    return path || req.name
+                })()}
             </Text>
             <IconButton
                 aria-label="Delete"
@@ -411,6 +463,7 @@ export const Sidebar = ({
     setShowHistory,
     settingsModal,
     envModal,
+    envManagerModal,
     setEditingEnvId,
     setNewEnvName,
     setNewEnvVariables,
@@ -438,14 +491,16 @@ export const Sidebar = ({
                     <Box
                         w={10}
                         h={10}
-                        bgGradient="linear(to-br, purple.400, blue.500)"
-                        borderRadius="xl"
                         display="flex"
                         alignItems="center"
                         justifyContent="center"
-                        boxShadow="lg"
                     >
-                        <FiZap color="white" size={20} fill="white" />
+                        <Image
+                            src={`${process.env.NEXT_PUBLIC_BASE_PATH || '/api-tester'}/logo.svg`}
+                            alt="Vibe Test Logo"
+                            width={40}
+                            height={40}
+                        />
                     </Box>
                     <Heading size="md" bgGradient="linear(to-r, purple.500, blue.500)" bgClip="text" letterSpacing="tight">
                         Vibe Test
@@ -485,23 +540,40 @@ export const Sidebar = ({
                             Environment
                         </Text>
                     </HStack>
-                    {selectedEnvId && (
-                        <IconButton
-                            aria-label="Edit environment"
-                            icon={<FiEdit2 />}
-                            size="xs"
-                            variant="ghost"
-                            onClick={(): void => {
-                                const env = environments.find(e => e.id === selectedEnvId)
-                                if (env) {
-                                    setEditingEnvId(env.id)
-                                    setNewEnvName(env.name)
-                                    setNewEnvVariables(env.variables)
-                                    envModal.onOpen()
-                                }
-                            }}
-                        />
-                    )}
+                    <HStack spacing={1}>
+                        {selectedEnvId && (
+                            <Tooltip label="Edit environment">
+                                <IconButton
+                                    aria-label="Edit environment"
+                                    icon={<FiEdit2 />}
+                                    size="xs"
+                                    variant="ghost"
+                                    onClick={(): void => {
+                                        const env = environments.find(e => e.id === selectedEnvId)
+                                        if (env) {
+                                            setEditingEnvId(env.id)
+                                            setNewEnvName(env.name)
+                                            setNewEnvVariables(env.variables)
+                                            envModal.onOpen()
+                                        }
+                                    }}
+                                />
+                            </Tooltip>
+                        )}
+                        {envManagerModal && (
+                            <Tooltip label="Manage all environments">
+                                <Button
+                                    size="xs"
+                                    variant="ghost"
+                                    colorScheme="purple"
+                                    onClick={envManagerModal.onOpen}
+                                    fontSize="10px"
+                                >
+                                    Manage
+                                </Button>
+                            </Tooltip>
+                        )}
+                    </HStack>
                 </HStack>
                 <Box
                     as="select"

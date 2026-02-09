@@ -36,7 +36,7 @@ export const createCollection = async (name: string): Promise<{ success: boolean
             return { success: true }
         }
         return { success: false, error: 'Failed to create collection' }
-    } catch (error) {
+    } catch {
         return { success: false, error: 'Failed to create collection' }
     }
 }
@@ -51,7 +51,7 @@ export const deleteCollection = async (id: string): Promise<{ success: boolean; 
             return { success: true }
         }
         return { success: false, error: 'Failed to delete collection' }
-    } catch (error) {
+    } catch {
         return { success: false, error: 'Failed to delete collection' }
     }
 }
@@ -70,7 +70,7 @@ export const updateCollection = async (id: string, data: Partial<Collection>): P
             return { success: true }
         }
         return { success: false, error: 'Failed to update collection' }
-    } catch (error) {
+    } catch {
         return { success: false, error: 'Failed to update collection' }
     }
 }

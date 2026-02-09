@@ -46,7 +46,7 @@ export const createEnvironment = async (
             return { success: true }
         }
         return { success: false, error: 'Failed to create environment' }
-    } catch (error) {
+    } catch {
         return { success: false, error: 'Failed to create environment' }
     }
 }
@@ -71,7 +71,7 @@ export const updateEnvironment = async (
     }
 
     try {
-        const res = await fetch(`/__api__/environments/${id}`, {
+        const res = await fetch(`__api__/environments/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, variables }),
@@ -82,7 +82,7 @@ export const updateEnvironment = async (
         }
         const data = (await res.json()) as { error?: string }
         return { success: false, error: data.error ?? 'Update failed' }
-    } catch (error) {
+    } catch {
         return { success: false, error: 'Failed to update environment' }
     }
 }
@@ -92,12 +92,12 @@ export const updateEnvironment = async (
  */
 export const deleteEnvironment = async (id: string): Promise<{ success: boolean; error?: string }> => {
     try {
-        const res = await fetch(`/__api__/environments/${id}`, { method: 'DELETE' })
+        const res = await fetch(`__api__/environments/${id}`, { method: 'DELETE' })
         if (res.ok) {
             return { success: true }
         }
         return { success: false, error: 'Failed to delete environment' }
-    } catch (error) {
+    } catch {
         return { success: false, error: 'Failed to delete environment' }
     }
 }

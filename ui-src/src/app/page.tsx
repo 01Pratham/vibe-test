@@ -64,6 +64,7 @@ const DashboardPage = (): JSX.Element => {
         collectionModal,
         requestModal,
         envModal,
+        envManagerModal,
         snippetModal,
         conflictModal,
         openApiViewerModal,
@@ -119,6 +120,7 @@ const DashboardPage = (): JSX.Element => {
         currentVariables,
         methodColors,
         // Handlers
+        loadEnvironments,
         handleExecuteRequest,
         handleFileImportWrapper,
         handleCreateCollection,
@@ -161,7 +163,7 @@ const DashboardPage = (): JSX.Element => {
             <PanelGroup orientation="horizontal">
                 {isDesktop && isSidebarOpen && (
                     <>
-                        <Panel defaultSize={25} minSize={10} maxSize={40} id="sidebar-panel">
+                        <Panel defaultSize={"25%"} minSize={"10%"} maxSize={"40%"} id="sidebar-panel">
                             <Box h="full" bg={sidebarBg}>
                                 <Sidebar
                                     sidebarBg={sidebarBg}
@@ -178,6 +180,7 @@ const DashboardPage = (): JSX.Element => {
                                     importModal={importModal}
                                     collectionModal={collectionModal}
                                     envModal={envModal}
+                                    envManagerModal={envManagerModal}
                                     openApiViewerModal={openApiViewerModal}
                                     settingsModal={settingsModal}
                                     setEditingEnvId={setEditingEnvId}
@@ -222,6 +225,7 @@ const DashboardPage = (): JSX.Element => {
                                     importModal={importModal}
                                     collectionModal={collectionModal}
                                     envModal={envModal}
+                                    envManagerModal={envManagerModal}
                                     openApiViewerModal={openApiViewerModal}
                                     settingsModal={settingsModal}
                                     setEditingEnvId={setEditingEnvId}
@@ -319,7 +323,7 @@ const DashboardPage = (): JSX.Element => {
 
                             <ResizeHandle direction="vertical" />
 
-                            <Panel minSize={20}>
+                            <Panel minSize={20} maxSize={"70%"} defaultSize={"40%"}>
                                 <ResponsePanel
                                     executing={executing}
                                     response={response}
@@ -343,6 +347,7 @@ const DashboardPage = (): JSX.Element => {
                 collectionModal={collectionModal}
                 requestModal={requestModal}
                 envModal={envModal}
+                envManagerModal={envManagerModal}
                 snippetModal={snippetModal}
                 conflictModal={conflictModal}
                 openApiViewerModal={openApiViewerModal}
@@ -360,6 +365,10 @@ const DashboardPage = (): JSX.Element => {
                 editingEnvId={editingEnvId}
                 saveEnvironment={handleSaveEnvironment}
                 deleteEnvironment={handleDeleteEnvironment}
+                environments={environments}
+                selectedEnvId={selectedEnvId}
+                setSelectedEnvId={setSelectedEnvId}
+                loadEnvironments={loadEnvironments}
                 fileInputRef={fileInputRef}
                 handleFileImport={handleFileImportWrapper}
                 importing={importing}

@@ -77,7 +77,7 @@ export class ExpressScanner {
                 path,
                 method: method.toUpperCase(),
                 schema,
-                name: `${method.toUpperCase()} ${path}`
+                name: `${path}`
             });
         });
     }
@@ -85,9 +85,13 @@ export class ExpressScanner {
     private handleRouterLayer(layer: ExpressLayer, prefix: string, routes: ScannedRoute[]): void {
         let newPrefix = prefix;
         if (layer.regexp !== undefined) {
-            const match = layer.regexp.toString().match(/^\\(\/[\w-]+)/);
-            if (match !== null) {
-                newPrefix += match[1] ?? '';
+            const source = layer.regexp.source;
+            // Extract path from regex source: looks for sequence of escaped slashes and valid chars
+            // Example: ^\/api\/v1\/?(?=\/|$) -> matches "\/api\/v1"
+            const match = source.match(/^\^?((?:\\\/[\w\-.:*]+)+)/);
+            if (match !== null && match[0] !== '') {
+                // Unescape the matched path (e.g. "\/api\/v1" -> "/api/v1")
+                newPrefix += match[1].replace(/\\(.)/g, '$1');
             }
         }
         if (layer.handle?.stack !== undefined) {
@@ -201,7 +205,7 @@ export class ExpressScanner {
                     }
                 }
             }
-        } catch (e) {
+        } catch {
             // Silently fail
         }
         return obj;
@@ -213,17 +217,30 @@ export class ExpressScanner {
             current = (current._def.schema ?? current._def.innerType) as ZodSchemaLike;
         }
 
-        const type = current._def?.typeName;
-        switch (type) {
+        const typeName = current._def?.typeName;
+        if (typeName === undefined) {
+            return null;
+        }
+
+        return this.mapZodTypeToValue(typeName, current);
+    }
+
+    private mapZodTypeToValue(typeName: string, current: ZodSchemaLike): string | number | boolean | string[] | SchemaObject | null {
+        switch (typeName) {
             case 'ZodString': return "string";
             case 'ZodNumber': return 0;
             case 'ZodBoolean': return true;
             case 'ZodArray': return [];
             case 'ZodObject': return this.parseZodSchema(current);
-            case 'ZodEnum': return (current._def?.values)?.[0] ?? "enum";
+            case 'ZodEnum': return this.getZodEnumDefault(current);
             case 'ZodDate': return new Date().toISOString();
             default: return null;
         }
+    }
+
+    private getZodEnumDefault(current: ZodSchemaLike): string {
+        const values = current._def?.values;
+        return (values !== undefined && values.length > 0) ? values[0] : "enum";
     }
 }
 

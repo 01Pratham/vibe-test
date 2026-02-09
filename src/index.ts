@@ -4,7 +4,7 @@ import path from 'path';
 import { Router, json, static as expressStatic } from 'express';
 
 import { CaptureService } from './core/capture-service';
-import { executeRequest, type ExecuteRequest } from './core/executor';
+import { executeRequest, type ExecuteRequest, type ExecuteResponse } from './core/executor';
 import { requestInterceptor } from './middleware/interceptor';
 import { JsonStorageProvider } from './storage/json-provider';
 
@@ -104,7 +104,7 @@ function getProjectName(): string {
                     .join(' ');
             }
         }
-    } catch (e) { /* Silently fail */ }
+    } catch { /* Silently fail */ }
     return projectName;
 }
 
@@ -114,7 +114,7 @@ async function initializeCapture(app: Express, storage: IStorageProvider, captur
     }
     await captureService.capture(app, userId, projectName).catch(() => { /* Silently fail */ });
     const port = process.env.PORT ?? '3000';
-    process.stdout.write(`\x1b[32mVibe Test URL :- http://localhost:${port}${mountPath}\x1b[0m\n`);
+    process.stdout.write(`Vibe Test URL :- \x1b[32mhttp://localhost:${port}${mountPath}\x1b[0m\n`);
 }
 
 function setupApiRoutes(router: Router, storage: IStorageProvider, userId: string, options: ApiTesterOptions): void {
@@ -185,16 +185,18 @@ function setupApiRoutes(router: Router, storage: IStorageProvider, userId: strin
     });
 
     setupExecutionRoute(router, storage, userId);
+    setupFormDataExecutionRoute(router, storage, userId);
     setupHistoryRoutes(router, storage, userId);
     setupEnvironmentRoutes(router, storage);
 }
 
-function resolveVariables(text: string, variables: Record<string, string>): string {
-    if (text === undefined || text === null || text === '') {
+function resolveVariables(text: string | undefined | null, variables: Record<string, string>): string | undefined | null {
+    if (text === undefined || text === null || typeof text !== 'string' || text === '') {
         return text;
     }
     return text.replace(/\{\{([^}]+)\}\}/g, (match: string, key: string): string => {
-        return variables[key] ?? match;
+        const trimmedKey = key.trim();
+        return variables[trimmedKey] ?? match;
     });
 }
 
@@ -202,56 +204,95 @@ function setupExecutionRoute(router: Router, storage: IStorageProvider, userId: 
     router.post('/__api__/execute', (req: Request, res: Response) => {
         const execute = async (): Promise<void> => {
             try {
-                interface ExecutionData {
-                    method: string;
-                    url: string;
-                    headers?: Record<string, string>;
-                    body?: string;
-                    variables?: Record<string, string>;
-                    environmentId?: string;
-                    requestId?: string;
-                }
+                const executionData = { ...(req.body as Record<string, unknown>) } as unknown as ExecutionRequestData;
+                let variables: Record<string, string> = await loadVariablesFromStorage(storage, executionData.environmentId);
 
-                const executionData = { ...(req.body as Record<string, unknown>) } as unknown as ExecutionData;
-                let variables: Record<string, string> = {};
-
-                // Load environment variables
                 if (executionData.variables !== undefined) {
-                    variables = executionData.variables;
-                } else {
-                    variables = await loadVariablesFromStorage(storage, executionData.environmentId);
+                    variables = { ...variables, ...executionData.variables };
                 }
 
-                // Merge Collection Headers
                 if (executionData.requestId !== undefined) {
                     const colHeaders = await getCollectionHeaders(storage, userId, executionData.requestId, variables);
                     executionData.headers = { ...colHeaders, ...(executionData.headers ?? {}) };
                 }
 
-                // Resolve variables
-                executionData.url = resolveVariables(executionData.url, variables);
-                if (executionData.headers !== undefined) {
-                    const resolvedHeaders: Record<string, string> = {};
-                    for (const [key, value] of Object.entries(executionData.headers)) {
-                        resolvedHeaders[key] = resolveVariables(value, variables);
-                    }
-                    executionData.headers = resolvedHeaders;
-                }
-                if (executionData.body !== undefined) {
-                    executionData.body = resolveVariables(executionData.body, variables);
-                }
+                resolveAllVariables(executionData, variables);
 
                 const response = await executeRequest(executionData as ExecuteRequest);
+                await logExecutionToHistory(storage, userId, executionData, response);
 
-                await storage.addToHistory(userId, {
-                    method: executionData.method,
-                    url: executionData.url,
-                    status: response.status ?? 0,
-                    duration: response.time ?? 0,
-                    requestHeaders: JSON.stringify(executionData.headers),
-                    requestBody: executionData.body ?? '',
-                    responseHeaders: JSON.stringify(response.headers),
-                    responseBody: typeof response.body === 'string' ? response.body : JSON.stringify(response.body)
+                res.json(response);
+            } catch (err) {
+                res.status(500).json({ error: (err as Error).message });
+            }
+        };
+        void execute();
+    });
+}
+
+interface ExecutionRequestData {
+    method: string;
+    url: string;
+    headers?: Record<string, string>;
+    body?: string;
+    variables?: Record<string, string>;
+    environmentId?: string;
+    requestId?: string;
+}
+
+function resolveAllVariables(data: ExecutionRequestData, variables: Record<string, string>): void {
+    data.url = resolveVariables(data.url, variables) ?? '';
+    if (data.headers !== undefined) {
+        const resolved: Record<string, string> = {};
+        for (const [key, value] of Object.entries(data.headers)) {
+            resolved[key] = resolveVariables(value, variables) ?? '';
+        }
+        data.headers = resolved;
+    }
+    if (data.body !== undefined) {
+        data.body = resolveVariables(data.body, variables) ?? '';
+    }
+}
+
+async function logExecutionToHistory(storage: IStorageProvider, userId: string, data: ExecutionRequestData, response: ExecuteResponse): Promise<void> {
+    await storage.addToHistory(userId, {
+        method: data.method,
+        url: data.url,
+        status: response.status ?? 0,
+        duration: response.time ?? 0,
+        requestHeaders: JSON.stringify(data.headers),
+        requestBody: data.body ?? '',
+        responseHeaders: JSON.stringify(response.headers),
+        responseBody: typeof response.body === 'string' ? response.body : JSON.stringify(response.body)
+    });
+}
+
+function setupFormDataExecutionRoute(router: Router, storage: IStorageProvider, _userId: string): void {
+    router.post('/__api__/execute-formdata', (req: Request, res: Response) => {
+        const execute = async (): Promise<void | Response> => {
+            try {
+                const body = { ...(req.body as Record<string, unknown>) };
+                const method = getBodyValue(body, '_method', 'POST');
+                const url = getBodyValue(body, '_url', '');
+                const headers = JSON.parse(getBodyValue(body, '_headers', '{}')) as Record<string, string>;
+                const environmentId = (body._environmentId !== undefined && body._environmentId !== null && body._environmentId !== '') ? String(body._environmentId) : undefined;
+                const variablesInput = getBodyValue(body, '_variables', '{}');
+                const frontendVariables = JSON.parse(variablesInput) as Record<string, string>;
+
+                let variables = await loadVariablesFromStorage(storage, environmentId);
+                variables = { ...variables, ...frontendVariables };
+
+                const resolvedUrl = resolveVariables(url, variables) ?? '';
+                const resolvedHeaders: Record<string, string> = {};
+                for (const [key, value] of Object.entries(headers)) {
+                    resolvedHeaders[key] = resolveVariables(value, variables) ?? '';
+                }
+
+                const response = await executeRequest({
+                    method,
+                    url: resolvedUrl,
+                    headers: resolvedHeaders,
+                    body: undefined,
                 });
 
                 res.json(response);
@@ -261,6 +302,11 @@ function setupExecutionRoute(router: Router, storage: IStorageProvider, userId: 
         };
         void execute();
     });
+}
+
+function getBodyValue(body: Record<string, unknown>, key: string, defaultValue: string): string {
+    const val = body[key];
+    return (val !== undefined && val !== null && val !== '') ? String(val) : defaultValue;
 }
 
 async function loadVariablesFromStorage(storage: IStorageProvider, environmentId?: string): Promise<Record<string, string>> {
@@ -286,7 +332,7 @@ async function getCollectionHeaders(storage: IStorageProvider, userId: string, r
             const collections = await storage.getCollections(userId);
             const col = collections.find(c => c.id === requestDetail.collectionId);
             if (col?.headers !== undefined && col.headers !== '' && col.headers !== null) {
-                const resolvedHeaders = resolveVariables(col.headers, variables);
+                const resolvedHeaders = resolveVariables(col.headers, variables) ?? '{}';
                 return JSON.parse(resolvedHeaders) as Record<string, string>;
             }
         }
@@ -373,9 +419,7 @@ function setupExportRoutes(router: Router, storage: IStorageProvider, userId: st
 
                 requests.forEach(r => {
                     const pathName = r.url.startsWith('/') ? r.url : `/${r.url}`;
-                    if (spec.paths[pathName] === undefined) {
-                        spec.paths[pathName] = {};
-                    }
+                    spec.paths[pathName] ??= {};
                     spec.paths[pathName][r.method.toLowerCase()] = {
                         summary: r.name,
                         responses: { ['200']: { description: 'Success' } }

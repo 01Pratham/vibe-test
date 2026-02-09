@@ -42,3 +42,7 @@ coverage/
 # OS
 Thumbs.db
 db/
+
+.cache
+
+package-lock.json

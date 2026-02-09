@@ -4,7 +4,7 @@ import { useRef, useEffect } from 'react'
 
 import { Editor } from '@monaco-editor/react'
 
-import { Box } from '@chakra-ui/react'
+import { Box, useColorMode } from '@chakra-ui/react'
 
 import type { OnMount } from '@monaco-editor/react'
 
@@ -37,6 +37,7 @@ export const CodeEditor = ({
     readOnly = false,
     variables = []
 }: CodeEditorProps): JSX.Element => {
+    const { colorMode } = useColorMode()
     const editorRef = useRef<MonacoEditorInstance | null>(null)
     const monacoRef = useRef<MonacoInstance | null>(null)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -99,16 +100,89 @@ export const CodeEditor = ({
         editorRef.current = editor
         monacoRef.current = monacoInstance
 
-        // Configure JSON defaults
+        // Configure JSON defaults - disable validation to allow {{variables}}
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if (language === 'json' && (monacoInstance.languages.json as any)) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
             (monacoInstance.languages.json as any).jsonDefaults.setDiagnosticsOptions({
-                validate: true,
+                validate: false, // Disable validation to allow {{variables}}
                 allowComments: false,
                 schemas: [],
-                enableSchemaRequest: true
+                enableSchemaRequest: false
             })
+        }
+
+        // Add pm API snippets for JavaScript (pre-req/test scripts)
+        if (language === 'javascript') {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+            monacoInstance.languages.registerCompletionItemProvider('javascript', {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                provideCompletionItems: (): any => {
+                    const suggestions = [
+                        {
+                            label: 'pm.environment.set',
+                            kind: monacoInstance.languages.CompletionItemKind.Method,
+                            insertText: 'pm.environment.set("${1:key}", "${2:value}")',
+                            insertTextRules: monacoInstance.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                            documentation: 'Set an environment variable'
+                        },
+                        {
+                            label: 'pm.environment.get',
+                            kind: monacoInstance.languages.CompletionItemKind.Method,
+                            insertText: 'pm.environment.get("${1:key}")',
+                            insertTextRules: monacoInstance.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                            documentation: 'Get an environment variable'
+                        },
+                        {
+                            label: 'pm.response.json',
+                            kind: monacoInstance.languages.CompletionItemKind.Method,
+                            insertText: 'const res = pm.response.json();\n${0}',
+                            insertTextRules: monacoInstance.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                            documentation: 'Parse response body as JSON'
+                        },
+                        {
+                            label: 'pm.test',
+                            kind: monacoInstance.languages.CompletionItemKind.Method,
+                            insertText: 'pm.test("${1:test name}", () => {\n\t${0}\n});',
+                            insertTextRules: monacoInstance.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                            documentation: 'Create a test assertion'
+                        },
+                        {
+                            label: 'pm.response.code',
+                            kind: monacoInstance.languages.CompletionItemKind.Property,
+                            insertText: 'pm.response.code',
+                            documentation: 'HTTP response status code'
+                        },
+                        {
+                            label: 'pm.response.status',
+                            kind: monacoInstance.languages.CompletionItemKind.Property,
+                            insertText: 'pm.response.status',
+                            documentation: 'HTTP response status text'
+                        },
+                        {
+                            label: 'pm.response.headers',
+                            kind: monacoInstance.languages.CompletionItemKind.Property,
+                            insertText: 'pm.response.headers',
+                            documentation: 'Response headers object'
+                        },
+                        {
+                            label: 'pm.response.text',
+                            kind: monacoInstance.languages.CompletionItemKind.Method,
+                            insertText: 'pm.response.text()',
+                            documentation: 'Get response body as text'
+                        },
+                        {
+                            label: 'Set variable from response',
+                            kind: monacoInstance.languages.CompletionItemKind.Snippet,
+                            insertText: 'const res = pm.response.json();\npm.environment.set("${1:variableName}", res.${2:data.field});',
+                            insertTextRules: monacoInstance.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                            documentation: 'Common pattern: extract value from response and save to environment'
+                        }
+                    ];
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+                    return { suggestions };
+                }
+            });
         }
 
         // Add variable completion provider
@@ -159,7 +233,7 @@ export const CodeEditor = ({
         <Box
             height={height}
             border="1px solid"
-            borderColor="whiteAlpha.200"
+            borderColor={colorMode === 'dark' ? "whiteAlpha.200" : "gray.200"}
             borderRadius="md"
             overflow="hidden"
             sx={{
@@ -174,7 +248,7 @@ export const CodeEditor = ({
             <Editor
                 height="100%"
                 language={language}
-                theme="vs-dark"
+                theme={colorMode === 'dark' ? "vs-dark" : "light"}
                 value={value}
                 onChange={onChange}
                 onMount={handleEditorDidMount}

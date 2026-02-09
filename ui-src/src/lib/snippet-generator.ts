@@ -16,12 +16,10 @@ export const snippetLanguages: { id: SnippetLanguage; name: string; label: strin
     { id: 'javascript-fetch', name: 'JavaScript', label: 'Fetch' },
     { id: 'javascript-axios', name: 'JavaScript', label: 'Axios' },
     { id: 'python-requests', name: 'Python', label: 'Requests' },
-    { id: 'python-http', name: 'Python', label: 'http.client' },
     { id: 'php-curl', name: 'PHP', label: 'cURL' },
     { id: 'go', name: 'Go', label: 'net/http' },
     { id: 'java', name: 'Java', label: 'HttpClient' },
     { id: 'csharp', name: 'C#', label: 'HttpClient' },
-    { id: 'ruby', name: 'Ruby', label: 'Net::HTTP' },
 ]
 
 function escapeString(str: string, quote: "'" | '"' = "'"): string {

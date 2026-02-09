@@ -14,8 +14,8 @@
         "build:lib": "tsc",
         "build:ui": "cd ui-src && npm install && npm run build",
         "build": "npm run build:lib && npm run build:ui",
-        "lint": "eslint src --ext .ts",
-        "lint:fix": "eslint src --ext .ts --fix",
+        "lint": "eslint src",
+        "lint:fix": "eslint src --fix",
         "lint:ui": "cd ui-src && npm run lint",
         "lint:all": "npm run lint && npm run lint:ui",
         "prepublishOnly": "npm run build"
@@ -66,16 +66,17 @@
     "devDependencies": {
         "@types/express": "^4.17.21",
         "@types/node": "^20.11.16",
-        "@typescript-eslint/eslint-plugin": "^6.21.0",
-        "@typescript-eslint/parser": "^6.21.0",
-        "eslint": "^8.56.0",
+        "@typescript-eslint/eslint-plugin": "^8.55.0",
+        "@typescript-eslint/parser": "^8.55.0",
+        "eslint": "^9.39.2",
         "eslint-config-next": "^14.1.0",
         "eslint-import-resolver-typescript": "^3.6.1",
-        "eslint-plugin-import": "^2.29.1",
+        "eslint-plugin-import": "^2.32.0",
         "eslint-plugin-jsx-a11y": "^6.8.0",
         "eslint-plugin-react": "^7.33.2",
         "eslint-plugin-react-hooks": "^4.6.0",
         "express": "^4.18.2",
-        "typescript": "^5.3.3"
+        "typescript": "^5.3.3",
+        "typescript-eslint": "^8.55.0"
     }
 }

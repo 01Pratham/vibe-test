@@ -45,7 +45,6 @@ export function requestInterceptor(storage: IStorageProvider, options: Intercept
             const originalSend = res.send;
             res.send = function (body: string | JsonValue): Response {
                 responseBody = body;
-                // eslint-disable-next-line prefer-rest-params
                 return originalSend.call(this, body);
             };
         }
@@ -64,7 +63,7 @@ export function requestInterceptor(storage: IStorageProvider, options: Intercept
 
                     // 2. Auto-Update "Auto-Captured" request documentation
                     await autoUpdateDocumentation(storage, userId, req, reqBodyStr);
-                } catch (err) {
+                } catch {
                     // Silently fail
                 }
             };

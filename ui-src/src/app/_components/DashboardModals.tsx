@@ -30,7 +30,8 @@ import {
     NumberInputField,
     NumberInputStepper,
     NumberIncrementStepper,
-    NumberDecrementStepper
+    NumberDecrementStepper,
+    useColorMode
 } from '@chakra-ui/react'
 import type { UseDisclosureReturn, UseToastOptions } from '@chakra-ui/react'
 
@@ -39,8 +40,9 @@ import { snippetLanguages, generateSnippet } from '@/lib/snippet-generator'
 import { CodeEditor } from '../../components/CodeEditor'
 
 import { OpenApiDocsViewer } from './OpenApiDocsViewer'
+import { EnvironmentManager } from './EnvironmentManager'
 
-import type { ConflictData, RequestSettings, Collection, RequestTab, OpenApiSpec } from '../../types'
+import type { ConflictData, RequestSettings, Collection, RequestTab, OpenApiSpec, Environment } from '../../types'
 import type { SnippetLanguage, RequestConfig } from '@/lib/snippet-generator'
 
 interface DashboardModalsProps {
@@ -73,6 +75,13 @@ interface DashboardModalsProps {
     saveEnvironment: () => void
     deleteEnvironment: (id: string) => void
     editingEnvId: string | null
+
+    // Environment Manager Modal
+    envManagerModal: UseDisclosureReturn
+    environments: Environment[]
+    selectedEnvId: string
+    setSelectedEnvId: (id: string) => void
+    loadEnvironments: () => void
 
     // Settings Modal
     settingsModal: UseDisclosureReturn
@@ -352,61 +361,76 @@ const SaveRequestModal = ({ requestModal, newRequestName, setNewRequestName, sav
     </Modal>
 )
 
-const SettingsModal = ({ settingsModal, settings, setSettings, cardBg, inputBg, borderColor, mutedText }: Pick<DashboardModalsProps, 'settingsModal' | 'settings' | 'setSettings' | 'cardBg' | 'inputBg' | 'borderColor' | 'mutedText'>): JSX.Element => (
-    <Modal isOpen={settingsModal.isOpen} onClose={settingsModal.onClose}>
-        <ModalOverlay backdropFilter="blur(4px)" />
-        <ModalContent bg={cardBg} borderRadius="xl" borderColor={borderColor} border="1px">
-            <ModalHeader>Request Settings</ModalHeader>
-            <ModalCloseButton />
-            <ModalBody>
-                <VStack spacing={6} align="stretch">
-                    <FormControl display="flex" alignItems="center" justifyContent="space-between">
-                        <Box>
-                            <FormLabel mb="0" fontSize="sm" fontWeight="bold">SSL Verification</FormLabel>
-                            <Text fontSize="xs" color={mutedText}>Verify SSL certificates for HTTPS requests</Text>
-                        </Box>
-                        <Switch
-                            colorScheme="purple"
-                            isChecked={settings.sslVerification}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setSettings({ ...settings, sslVerification: e.target.checked })}
-                        />
-                    </FormControl>
+const SettingsModal = ({ settingsModal, settings, setSettings, cardBg, inputBg, borderColor, mutedText }: Pick<DashboardModalsProps, 'settingsModal' | 'settings' | 'setSettings' | 'cardBg' | 'inputBg' | 'borderColor' | 'mutedText'>): JSX.Element => {
+    const { colorMode, toggleColorMode } = useColorMode()
 
-                    <FormControl display="flex" alignItems="center" justifyContent="space-between">
-                        <Box>
-                            <FormLabel mb="0" fontSize="sm" fontWeight="bold">Follow Redirects</FormLabel>
-                            <Text fontSize="xs" color={mutedText}>Automatically follow HTTP redirects</Text>
-                        </Box>
-                        <Switch
-                            colorScheme="purple"
-                            isChecked={settings.followRedirects}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setSettings({ ...settings, followRedirects: e.target.checked })}
-                        />
-                    </FormControl>
+    return (
+        <Modal isOpen={settingsModal.isOpen} onClose={settingsModal.onClose}>
+            <ModalOverlay backdropFilter="blur(4px)" />
+            <ModalContent bg={cardBg} borderRadius="xl" borderColor={borderColor} border="1px">
+                <ModalHeader>Request Settings</ModalHeader>
+                <ModalCloseButton />
+                <ModalBody>
+                    <VStack spacing={6} align="stretch">
+                        <FormControl display="flex" alignItems="center" justifyContent="space-between">
+                            <Box>
+                                <FormLabel mb="0" fontSize="sm" fontWeight="bold">Dark Mode</FormLabel>
+                                <Text fontSize="xs" color={mutedText}>Toggle application theme</Text>
+                            </Box>
+                            <Switch
+                                colorScheme="purple"
+                                isChecked={colorMode === 'dark'}
+                                onChange={toggleColorMode}
+                            />
+                        </FormControl>
+                        <FormControl display="flex" alignItems="center" justifyContent="space-between">
+                            <Box>
+                                <FormLabel mb="0" fontSize="sm" fontWeight="bold">SSL Verification</FormLabel>
+                                <Text fontSize="xs" color={mutedText}>Verify SSL certificates for HTTPS requests</Text>
+                            </Box>
+                            <Switch
+                                colorScheme="purple"
+                                isChecked={settings.sslVerification}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setSettings({ ...settings, sslVerification: e.target.checked })}
+                            />
+                        </FormControl>
 
-                    <FormControl>
-                        <FormLabel fontSize="sm" fontWeight="bold">Request Timeout (seconds)</FormLabel>
-                        <NumberInput
-                            value={settings.timeout ?? 30}
-                            min={1}
-                            max={300}
-                            onChange={(_: string, val: number): void => setSettings({ ...settings, timeout: val })}
-                        >
-                            <NumberInputField borderColor={borderColor} bg={inputBg} />
-                            <NumberInputStepper>
-                                <NumberIncrementStepper />
-                                <NumberDecrementStepper />
-                            </NumberInputStepper>
-                        </NumberInput>
-                    </FormControl>
-                </VStack>
-            </ModalBody>
-            <ModalFooter>
-                <Button colorScheme="purple" onClick={settingsModal.onClose}>Close</Button>
-            </ModalFooter>
-        </ModalContent>
-    </Modal>
-)
+                        <FormControl display="flex" alignItems="center" justifyContent="space-between">
+                            <Box>
+                                <FormLabel mb="0" fontSize="sm" fontWeight="bold">Follow Redirects</FormLabel>
+                                <Text fontSize="xs" color={mutedText}>Automatically follow HTTP redirects</Text>
+                            </Box>
+                            <Switch
+                                colorScheme="purple"
+                                isChecked={settings.followRedirects}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setSettings({ ...settings, followRedirects: e.target.checked })}
+                            />
+                        </FormControl>
+
+                        <FormControl>
+                            <FormLabel fontSize="sm" fontWeight="bold">Request Timeout (seconds)</FormLabel>
+                            <NumberInput
+                                value={settings.timeout ?? 30}
+                                min={1}
+                                max={300}
+                                onChange={(_: string, val: number): void => setSettings({ ...settings, timeout: val })}
+                            >
+                                <NumberInputField borderColor={borderColor} bg={inputBg} />
+                                <NumberInputStepper>
+                                    <NumberIncrementStepper />
+                                    <NumberDecrementStepper />
+                                </NumberInputStepper>
+                            </NumberInput>
+                        </FormControl>
+                    </VStack>
+                </ModalBody>
+                <ModalFooter>
+                    <Button colorScheme="purple" onClick={settingsModal.onClose}>Close</Button>
+                </ModalFooter>
+            </ModalContent>
+        </Modal>
+    )
+}
 
 const ConflictModal = ({ conflictModal, handleConflictReload, handleConflictOverwrite, handleConflictSaveAsNew, cardBg, borderColor }: Pick<DashboardModalsProps, 'conflictModal' | 'handleConflictReload' | 'handleConflictOverwrite' | 'handleConflictSaveAsNew' | 'cardBg' | 'borderColor'>): JSX.Element => (
     <Modal isOpen={conflictModal.isOpen} onClose={conflictModal.onClose} closeOnOverlayClick={false}>
@@ -527,6 +551,7 @@ export const DashboardModals = (props: DashboardModalsProps): JSX.Element => {
         editCollectionModal, editingCollection, setEditingCollection, saveCollection, deleteCollection,
         requestModal, newRequestName, setNewRequestName, saveRequest, selectedCollectionId, setSelectedCollectionId, collections,
         envModal, newEnvName, setNewEnvName, newEnvVariables, setNewEnvVariables, saveEnvironment, editingEnvId,
+        envManagerModal, environments, selectedEnvId, setSelectedEnvId, loadEnvironments,
         settingsModal, settings, setSettings, conflictModal, handleConflictReload, handleConflictOverwrite, handleConflictSaveAsNew,
         snippetModal, activeTab, toast, importModal, handleFileImport, fileInputRef, importing,
         openApiViewerModal, openApiSpec, viewerCollectionId, setViewerCollectionId, loadCollectionDocs,
@@ -543,6 +568,35 @@ export const DashboardModals = (props: DashboardModalsProps): JSX.Element => {
             <ConflictModal {...{ conflictModal, handleConflictReload, handleConflictOverwrite, handleConflictSaveAsNew, cardBg, borderColor }} />
             <SnippetModal {...{ snippetModal, activeTab, toast, cardBg, inputBg, borderColor }} />
             <ImportModal {...{ importModal, fileInputRef, handleFileImport, importing, cardBg, borderColor, mutedText }} />
+
+            <EnvironmentManager
+                isOpen={envManagerModal.isOpen}
+                onClose={envManagerModal.onClose}
+                environments={environments}
+                selectedEnvId={selectedEnvId}
+                setSelectedEnvId={setSelectedEnvId}
+                onCreateEnvironment={async (name, variables) => {
+                    // Temporarily set the values for the existing handler
+                    setNewEnvName(name)
+                    setNewEnvVariables(variables)
+                    // Use the existing save handler
+                    await saveEnvironment()
+                    return { success: true }
+                }}
+                onUpdateEnvironment={async (id, name, variables) => {
+                    // Import the updateEnvironment function
+                    const { updateEnvironment } = await import('../_scripts/environmentHandlers')
+                    const result = await updateEnvironment(id, name, variables)
+                    return result
+                }}
+                onDeleteEnvironment={async (id) => {
+                    const { deleteEnvironment: deleteEnvAPI } = await import('../_scripts/environmentHandlers')
+                    const result = await deleteEnvAPI(id)
+                    return result
+                }}
+                onRefresh={loadEnvironments}
+                toast={toast}
+            />
 
             <OpenApiDocsViewer
                 isOpen={openApiViewerModal.isOpen}

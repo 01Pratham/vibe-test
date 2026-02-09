@@ -1,4 +1,7 @@
-# @vibe-test/lib
+<div align="center">
+  <img src="ui/logo.svg" alt="Vibe Test Logo" width="120" height="120">
+  <h1>@vibe-test/lib</h1>
+</div>
 
 A lightweight, auto-generating Postman-like UI for Express.js applications. Capture requests automatically, manage collections, and test your APIs with a premium interface directly from your browser.
 
