@@ -1,0 +1,29 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="vibeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00d2ff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#9d50bb;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <path d="M40,100 L70,100 L85,130 L100,40 L115,130 L130,100 L160,100" 
+        fill="none" 
+        stroke="url(#vibeGradient)" 
+        stroke-width="12" 
+        stroke-linecap="round" 
+        stroke-linejoin="round" />
+  
+  <path d="M85,55 L100,35 L115,55" 
+        fill="none" 
+        stroke="url(#vibeGradient)" 
+        stroke-width="12" 
+        stroke-linecap="round" 
+        stroke-linejoin="round" />
+
+  <text x="100" y="170" 
+        font-family="Arial, sans-serif" 
+        font-size="22" 
+        font-weight="bold" 
+        fill="#2c3e50" 
+        text-anchor="middle">Vibe-Test</text>
+</svg>

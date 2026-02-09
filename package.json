@@ -1,5 +1,5 @@
 {
-    "name": "@vibe-test/lib",
+    "name": "vibe-test",
     "version": "1.0.0",
     "description": "Auto-generating Postman-like UI for Express applications",
     "main": "dist/index.js",
@@ -12,7 +12,7 @@
     ],
     "scripts": {
         "build:lib": "tsc",
-        "build:ui": "cd ui-src && npm install && npm run build",
+        "build:ui": "cd ui-src && npm run build && cd .. && rm -rf ui && mv ui-src/out ui",
         "build": "npm run build:lib && npm run build:ui",
         "lint": "eslint src",
         "lint:fix": "eslint src --fix",

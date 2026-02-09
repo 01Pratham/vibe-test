@@ -1,6 +1,6 @@
 <div align="center">
   <img src="ui/logo.svg" alt="Vibe Test Logo" width="120" height="120">
-  <h1>@vibe-test/lib</h1>
+  <h1>vibe-test</h1>
 </div>
 
 A lightweight, auto-generating Postman-like UI for Express.js applications. Capture requests automatically, manage collections, and test your APIs with a premium interface directly from your browser.
@@ -18,14 +18,14 @@ A lightweight, auto-generating Postman-like UI for Express.js applications. Capt
 ## Installation
 
 ```bash
-npm install @vibe-test/lib
+npm install vibe-test
 ```
 
 ## Quick Start
 
 ```typescript
 import express from 'express';
-import { vibeTest } from '@vibe-test/lib';
+import { vibeTest } from 'vibe-test';
 
 const app = express();
 

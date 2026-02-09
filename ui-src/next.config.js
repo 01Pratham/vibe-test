@@ -3,7 +3,7 @@ const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '/api-tester'
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     output: 'export',
-    distDir: '../ui',
+    distDir: 'out',
     basePath: basePath,
     assetPrefix: basePath,
     images: {
