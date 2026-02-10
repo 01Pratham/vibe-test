@@ -45,6 +45,5 @@ db/
 
 .cache
 
-package-lock.json
 
 .npmrc
