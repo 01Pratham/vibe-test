@@ -4,10 +4,12 @@ import path from 'path';
 import { Router, json, static as expressStatic } from 'express';
 
 import { CaptureService } from './core/capture-service';
-import { executeRequest, type ExecuteRequest, type ExecuteResponse } from './core/executor';
+import { executeRequest } from './core/executor';
 import { requestInterceptor } from './middleware/interceptor';
+import { expressScanner } from './scanner/express-scanner';
 import { JsonStorageProvider } from './storage/json-provider';
 
+import type { ExecuteRequest, ExecuteResponse } from './core/executor';
 import type {
     OpenApiPaths,
     PostmanHeader,
@@ -22,7 +24,6 @@ import type {
     Request as StoreRequest,
     SchemaExtractor
 } from './storage/interfaces';
-import { expressScanner } from './scanner/express-scanner';
 import type { IStorageProvider } from './storage/types';
 import type { Express, Request, Response, NextFunction } from 'express';
 

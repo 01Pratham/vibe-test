@@ -24,15 +24,41 @@ interface ExpressHandle {
     params?: { zodSchema?: ZodSchemaLike };
     validator?: { schema?: ZodSchemaLike };
     bodySchema?: ZodSchemaLike;
+    stack?: ExpressLayer[];
+    // Generic properties
+    [key: string]: unknown;
+}
+
+/**
+ * Helper interface for Joi schemas
+ */
+interface JoiSchema {
     isJoi?: boolean;
     type?: string;
-    keys?: unknown;
-    _ids?: { _byKey?: Map<string, unknown> };
-    stack?: ExpressLayer[];
-    // Yup specific
+    keys?: Record<string, unknown>;
+    _ids?: {
+        _byKey?: Map<string, unknown>;
+    };
+}
+
+/**
+ * Helper interface for Yup schemas
+ */
+interface YupSchema {
     fields?: Record<string, unknown>;
-    innerType?: unknown;
-    spec?: unknown;
+    spec?: {
+        type?: string;
+    };
+    type?: string;
+    _type?: string;
+}
+
+/**
+ * Helper interface for JSON schemas
+ */
+interface JsonSchema {
+    properties?: Record<string, { type?: string }>;
+    type?: string;
 }
 
 /**
@@ -140,11 +166,11 @@ export class ExpressScanner {
         }
 
         // 2. Try known patterns
-        const schemas: (ZodSchemaLike | undefined | any)[] = [
+        const schemas: (ZodSchemaLike | Record<string, unknown> | undefined | null)[] = [
             handle.zodSchema,
             handle.schema?.zodSchema,
             handle.params?.zodSchema,
-            handle.schema,
+            handle.schema as ZodSchemaLike | Record<string, unknown> | undefined,
             handle.validator?.schema,
             handle.bodySchema
         ];
@@ -195,22 +221,24 @@ export class ExpressScanner {
         return null;
     }
 
-    private isJsonSchemaLike(s: unknown): boolean {
-        return s !== null && typeof s === 'object' && ('properties' in s || (s as any).type === 'object');
+    private isJsonSchemaLike(s: unknown): s is JsonSchema {
+        return s !== null && typeof s === 'object' && ('properties' in s || (s as JsonSchema).type === 'object');
     }
 
-    private parseJsonSchema(s: any): SchemaObject | null {
+    private parseJsonSchema(s: JsonSchema): SchemaObject | null {
         if (s.properties !== undefined) {
             const obj: SchemaObject = {};
             for (const key in s.properties) {
-                obj[key] = this.getJsonSchemaDefaultValue(s.properties[key]);
+                if (Object.prototype.hasOwnProperty.call(s.properties, key)) {
+                    obj[key] = this.getJsonSchemaDefaultValue(s.properties[key]);
+                }
             }
             return obj;
         }
         return null;
     }
 
-    private getJsonSchemaDefaultValue(field: any): string | number | boolean | string[] | SchemaObject | null {
+    private getJsonSchemaDefaultValue(field: { type?: string }): string | number | boolean | string[] | SchemaObject | null {
         const type = field.type;
         switch (type) {
             case 'string': return "string";
@@ -218,7 +246,7 @@ export class ExpressScanner {
             case 'integer': return 0;
             case 'boolean': return true;
             case 'array': return [];
-            case 'object': return this.parseJsonSchema(field);
+            case 'object': return this.parseJsonSchema(field as JsonSchema);
             default: return "any";
         }
     }
@@ -228,28 +256,30 @@ export class ExpressScanner {
             ('_def' in obj || 'safeParse' in obj || 'parse' in obj);
     }
 
-    private isJoiLike(s: unknown): boolean {
-        return s !== null && typeof s === 'object' && ('isJoi' in s || (typeof s === 'object' && 'type' in s && (s as any).type === 'object'));
+    private isJoiLike(s: unknown): s is JoiSchema {
+        return s !== null && typeof s === 'object' && ('isJoi' in s || (typeof s === 'object' && 'type' in s && (s as JoiSchema).type === 'object'));
     }
 
-    private isYupLike(s: unknown): boolean {
-        return s !== null && typeof s === 'object' && ('fields' in s || 'spec' in s || (s as any)._type !== undefined);
+    private isYupLike(s: unknown): s is YupSchema {
+        return s !== null && typeof s === 'object' && ('fields' in s || 'spec' in s || (s as YupSchema)._type !== undefined);
     }
 
-    private parseYupSchema(s: any): SchemaObject | null {
+    private parseYupSchema(s: YupSchema): SchemaObject | null {
         if (s.fields !== undefined) {
             const obj: SchemaObject = {};
             for (const key in s.fields) {
-                obj[key] = this.getYupDefaultValue(s.fields[key]);
+                if (Object.prototype.hasOwnProperty.call(s.fields, key)) {
+                    obj[key] = this.getYupDefaultValue(s.fields[key] as YupSchema);
+                }
             }
             return obj;
         }
         return null;
     }
 
-    private getYupDefaultValue(field: any): string | number | boolean | string[] | SchemaObject | null {
+    private getYupDefaultValue(field: YupSchema): string | number | boolean | string[] | SchemaObject | null {
         try {
-            const type = field.type || (field.spec && field.spec.type);
+            const type = field.type ?? field.spec?.type;
             switch (type) {
                 case 'string': return "string";
                 case 'number': return 0;
@@ -263,11 +293,11 @@ export class ExpressScanner {
         }
     }
 
-    private parseJoiSchema(s: unknown): SchemaObject | null {
-        if (s !== null && typeof s === 'object' && 'keys' in s && s.keys !== undefined && s.keys !== null) {
+    private parseJoiSchema(s: JoiSchema): SchemaObject | null {
+        if (s.keys !== undefined && s.keys !== null) {
             return s.keys as unknown as SchemaObject;
         }
-        const byKey = (s as { _ids?: { _byKey?: Map<string, unknown> } })?._ids?._byKey;
+        const byKey = s._ids?._byKey;
         if (byKey !== undefined && byKey !== null && typeof byKey.forEach === 'function') {
             const joiObj: Record<string, string> = {};
             byKey.forEach((_v: unknown, k: string) => {
