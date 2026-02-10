@@ -39,7 +39,12 @@ export function requestInterceptor(storage: IStorageProvider, options: Intercept
         const startTime = Date.now();
         const userId = options.userId ?? 'system';
 
-        // Capture response body if needed
+        // 1. Capture request body IMMEDIATELY before it gets modified by routes
+        const reqBodyStr = (req.body !== undefined && req.body !== null)
+            ? (typeof req.body === 'string' ? req.body : JSON.stringify(req.body, null, 2))
+            : null;
+
+        // 2. Capture response body if needed
         let responseBody: string | JsonValue | null = null;
         if (options.captureResponse !== false) {
             const originalSend = res.send;
@@ -54,10 +59,6 @@ export function requestInterceptor(storage: IStorageProvider, options: Intercept
                 const duration = Date.now() - startTime;
 
                 try {
-                    const reqBodyStr = (req.body !== undefined && req.body !== null)
-                        ? (typeof req.body === 'string' ? req.body : JSON.stringify(req.body, null, 2))
-                        : null;
-
                     // 1. Log to history
                     await logToHistory(storage, userId, req, res, duration, responseBody, reqBodyStr);
 

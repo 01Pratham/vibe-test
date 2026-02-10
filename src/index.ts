@@ -25,10 +25,22 @@ import type {
     SchemaExtractor
 } from './storage/interfaces';
 import type { IStorageProvider } from './storage/types';
-import type { Express, Request, Response, NextFunction } from 'express';
+import type { Express, Request, Response, NextFunction, RequestHandler } from 'express';
 
-export interface ApiTesterOptions {
-    app: Express;
+interface InternalApp {
+    use(...args: Array<string | RequestHandler | Router>): void;
+}
+
+interface InternalRouter {
+    use(...args: Array<string | RequestHandler | Router | typeof json | typeof expressStatic>): void;
+    get(path: string, ...handlers: RequestHandler[]): void;
+    post(path: string, ...handlers: RequestHandler[]): void;
+    put(path: string, ...handlers: RequestHandler[]): void;
+    delete(path: string, ...handlers: RequestHandler[]): void;
+}
+
+export interface ApiTesterOptions<T> {
+    app: T;
     storage?: IStorageProvider;
     path?: string;
     authMiddleware?: (req: Request, res: Response, next: NextFunction) => void;
@@ -44,26 +56,27 @@ export interface ApiTesterOptions {
 /**
  * Main entry point for restiqo library
  */
-export function restiqo(options: ApiTesterOptions): Router {
-    const router = Router();
-    const userId = options.userId ?? 'system';
-    const projectName = getProjectName();
+export function restiqo<T, R>(options: ApiTesterOptions<T>): R {
+    const router: Router = Router();
+    const userId: string = options.userId ?? 'system';
+    const projectName: string = getProjectName();
 
-    const storage = options.storage ?? new JsonStorageProvider(options.storagePath, options.customizationPath, projectName);
+    const storage: IStorageProvider = options.storage ?? new JsonStorageProvider(options.storagePath, options.customizationPath, projectName);
 
     if (storage.init !== undefined) {
-        void storage.init().catch(() => { /* Silently fail */ });
+        void storage.init().catch((): void => { /* Silently fail */ });
     }
 
     if (options.schemaExtractors !== undefined) {
-        options.schemaExtractors.forEach(extractor => expressScanner.use(extractor));
+        options.schemaExtractors.forEach((extractor: SchemaExtractor): void => expressScanner.use(extractor));
     }
 
-    const captureService = new CaptureService(storage);
-    const mountPath = options.path ?? '/api-tester';
+    const captureService: CaptureService = new CaptureService(storage);
+    const mountPath: string = options.path ?? '/api-tester';
 
-    setImmediate(() => {
-        void initializeCapture(options.app, storage, captureService, userId, projectName, mountPath);
+    setImmediate((): void => {
+        const app = options.app as InternalApp;
+        void initializeCapture(app as object as Express, storage, captureService, userId, projectName, mountPath);
     });
 
     // Ensure trailing slash for UI
@@ -75,7 +88,8 @@ export function restiqo(options: ApiTesterOptions): Router {
     });
 
     if (options.autoCapture !== false) {
-        options.app.use(requestInterceptor(storage, {
+        const app = options.app as InternalApp;
+        app.use(requestInterceptor(storage, {
             mountPath,
             userId,
             excludePaths: options.excludePaths
@@ -88,12 +102,12 @@ export function restiqo(options: ApiTesterOptions): Router {
 
     router.use(json());
 
-    setupApiRoutes(router, storage, userId, options);
+    setupApiRoutes<T>(router, storage, userId, options);
     setupExportRoutes(router, storage, userId);
     setupAuthRoutes(router);
     setupStaticRoutes(router);
 
-    return router;
+    return router as object as R;
 }
 
 function getProjectName(): string {
@@ -125,7 +139,7 @@ async function initializeCapture(app: Express, storage: IStorageProvider, captur
     process.stdout.write(`restiQo URL :- \x1b[32mhttp://localhost:${port}${mountPath}\x1b[0m\n`);
 }
 
-function setupApiRoutes(router: Router, storage: IStorageProvider, userId: string, options: ApiTesterOptions): void {
+function setupApiRoutes<T>(router: Router, storage: IStorageProvider, userId: string, options: ApiTesterOptions<T>): void {
     router.get('/__api__/settings', (req: Request, res: Response) => {
         res.json({ ignoreSegments: options.ignoreSegments ?? ['api', 'v1'] });
     });
