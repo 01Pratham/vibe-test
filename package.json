@@ -1,6 +1,6 @@
 {
     "name": "restiqo",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "description": "Auto-generating Postman-like UI for Express applications",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
